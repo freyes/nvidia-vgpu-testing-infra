@@ -40,6 +40,11 @@ variable "root_disk_size" {
 variable "hypervisor_ip" {
   description = "IP address of the hypervisor host for nova-compute machine registration"
   type        = string
+
+  validation {
+    condition     = var.hypervisor_ip != ""
+    error_message = "hypervisor_ip must not be empty."
+  }
 }
 
 variable "hypervisor_ssh_user" {
