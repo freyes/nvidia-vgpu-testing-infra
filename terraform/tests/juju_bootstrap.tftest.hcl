@@ -5,8 +5,8 @@ run "bootstrap_juju_true_creates_null_resource" {
   command = plan
 
   variables {
-    hypervisor_ip   = "192.168.1.100"
-    bootstrap_juju  = true
+    hypervisor_ip  = "192.168.1.100"
+    bootstrap_juju = true
   }
 
   assert {
@@ -19,8 +19,8 @@ run "bootstrap_juju_false_skips_null_resource" {
   command = plan
 
   variables {
-    hypervisor_ip   = "192.168.1.100"
-    bootstrap_juju  = false
+    hypervisor_ip    = "192.168.1.100"
+    bootstrap_juju   = false
     deploy_openstack = false
   }
 
@@ -35,8 +35,8 @@ run "deploy_openstack_requires_bootstrap_juju" {
 
   variables {
     hypervisor_ip    = "192.168.1.100"
-    bootstrap_juju    = false
-    deploy_openstack  = true
+    bootstrap_juju   = false
+    deploy_openstack = true
   }
 
   expect_failures = [var.deploy_openstack]

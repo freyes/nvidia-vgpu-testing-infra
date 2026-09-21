@@ -1,9 +1,9 @@
 resource "local_file" "testbed" {
   content = templatefile("${path.module}/templates/testbed.yaml.tpl", {
-    vm_names         = keys(local.vm_definitions)
-    hypervisor_ip    = var.hypervisor_ip
-    ssh_private_key  = abspath(local_sensitive_file.ssh_private_key.filename)
-    ssh_user         = "ubuntu"
+    vm_names            = keys(local.vm_definitions)
+    hypervisor_ip       = var.hypervisor_ip
+    ssh_private_key     = abspath(local_sensitive_file.ssh_private_key.filename)
+    ssh_user            = "ubuntu"
     hypervisor_ssh_user = var.hypervisor_ssh_user
   })
   filename = "${path.module}/testbed.yaml"

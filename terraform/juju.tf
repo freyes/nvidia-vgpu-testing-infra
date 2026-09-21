@@ -109,9 +109,9 @@ resource "null_resource" "juju_deploy" {
   count = var.deploy_openstack ? 1 : 0
 
   triggers = {
-    hypervisor_ip                     = var.hypervisor_ip
-    ovn_bridge_mappings               = var.ovn_bridge_mappings
-    ovn_bridge_interface_mappings     = var.ovn_bridge_interface_mappings
+    hypervisor_ip                 = var.hypervisor_ip
+    ovn_bridge_mappings           = var.ovn_bridge_mappings
+    ovn_bridge_interface_mappings = var.ovn_bridge_interface_mappings
   }
 
   depends_on = [null_resource.juju_bootstrap]

@@ -4,12 +4,12 @@ locals {
     mysql-0               = { name = "mysql-0", role = "control", is_juju_controller = false }
     mysql-1               = { name = "mysql-1", role = "control", is_juju_controller = false }
     mysql-2               = { name = "mysql-2", role = "control", is_juju_controller = false }
-    rabbitmq             = { name = "rabbitmq", role = "control", is_juju_controller = false }
+    rabbitmq              = { name = "rabbitmq", role = "control", is_juju_controller = false }
     keystone              = { name = "keystone", role = "control", is_juju_controller = false }
     glance                = { name = "glance", role = "control", is_juju_controller = false }
     nova-cloud-controller = { name = "nova-cloud-controller", role = "control", is_juju_controller = false }
     placement             = { name = "placement", role = "control", is_juju_controller = false }
-    neutron-api          = { name = "neutron-api", role = "control", is_juju_controller = false }
+    neutron-api           = { name = "neutron-api", role = "control", is_juju_controller = false }
     ovn-central           = { name = "ovn-central", role = "control", is_juju_controller = false }
     vault                 = { name = "vault", role = "control", is_juju_controller = false }
   }
