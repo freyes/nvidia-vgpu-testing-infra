@@ -104,3 +104,33 @@ resource "null_resource" "juju_bootstrap" {
     command = local.juju_bootstrap_script
   }
 }
+
+resource "null_resource" "juju_deploy" {
+  count = var.deploy_openstack ? 1 : 0
+
+  triggers = {
+    hypervisor_ip                     = var.hypervisor_ip
+    ovn_bridge_mappings               = var.ovn_bridge_mappings
+    ovn_bridge_interface_mappings     = var.ovn_bridge_interface_mappings
+  }
+
+  depends_on = [null_resource.juju_bootstrap]
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+
+    environment = {
+      JUJU_CONTROLLER_NAME          = var.juju_controller_name
+      JUJU_MODEL_NAME               = var.juju_model_name
+      HYPERVISOR_IP                 = var.hypervisor_ip
+      HYPERVISOR_SSH_USER           = var.hypervisor_ssh_user
+      SSH_KEY_PATH                  = abspath(local_sensitive_file.ssh_private_key.filename)
+      LIBVIRT_URI                   = var.libvirt_uri
+      OVN_BRIDGE_MAPPINGS           = var.ovn_bridge_mappings
+      OVN_BRIDGE_INTERFACE_MAPPINGS = var.ovn_bridge_interface_mappings
+      BUNDLE_TEMPLATE_PATH          = abspath("${path.module}/templates/bundle.yaml.tpl")
+    }
+
+    command = "${path.module}/../scripts/deploy-openstack.sh"
+  }
+}
