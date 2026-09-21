@@ -1,0 +1,13 @@
+# Terraform state and runtime
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# SSH keys and secrets
+ssh_private_key
+*.pem
+
+# Generated deployment artifacts
+testbed.yaml
+bundle.yaml
