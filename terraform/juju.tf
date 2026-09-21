@@ -134,3 +134,24 @@ resource "null_resource" "juju_deploy" {
     command = "${path.module}/../scripts/deploy-openstack.sh"
   }
 }
+
+resource "null_resource" "vault_init" {
+  count = var.deploy_openstack ? 1 : 0
+
+  triggers = {
+    hypervisor_ip = var.hypervisor_ip
+  }
+
+  depends_on = [null_resource.juju_deploy]
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+
+    environment = {
+      JUJU_MODEL           = var.juju_model_name
+      JUJU_CONTROLLER_NAME = var.juju_controller_name
+    }
+
+    command = "${path.module}/../scripts/vault-unseal-and-authorise.sh"
+  }
+}
