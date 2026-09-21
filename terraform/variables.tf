@@ -110,6 +110,11 @@ variable "deploy_openstack" {
   description = "Whether to deploy the OpenStack bundle after Juju bootstrap"
   type        = bool
   default     = true
+
+  validation {
+    condition     = !(var.deploy_openstack && !var.bootstrap_juju)
+    error_message = "deploy_openstack requires bootstrap_juju=true."
+  }
 }
 
 variable "ovn_bridge_mappings" {
