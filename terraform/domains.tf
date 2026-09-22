@@ -24,10 +24,13 @@ resource "libvirt_domain" "vgpu_vm" {
       {
         source = { volume = { pool = libvirt_pool.vgpu.name, volume = libvirt_volume.vm_root[each.key].name } }
         target = { dev = "vda", bus = "virtio" }
+        device = "disk"
+        boot   = { order = 1 }
       },
       {
         source = { file = { file = libvirt_cloudinit_disk.cloudinit[each.key].path } }
         target = { dev = "sda", bus = "sata" }
+        device = "cdrom"
       }
     ]
     interfaces = [
