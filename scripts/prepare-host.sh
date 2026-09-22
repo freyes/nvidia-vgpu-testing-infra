@@ -1,20 +1,23 @@
 #!/bin/bash
-# prepare-host.sh — check hypervisor prerequisites for nova-compute with
-# NVIDIA vGPU running directly on the host.
+# prepare-host.sh — check and install hypervisor prerequisites for
+# nova-compute with NVIDIA vGPU running directly on the host.
 #
 # Usage:
-#   prepare-host.sh           # check prerequisites, exit non-zero on failure
-#   prepare-host.sh --check   # read-only status report, always exit 0
+#   prepare-host.sh              # check prerequisites, exit non-zero on failure
+#   prepare-host.sh --check      # read-only status report, always exit 0
+#   prepare-host.sh --install    # install missing dependencies, then re-check
 #
-# This script does NOT mutate the host: it does not rebind GPUs, edit GRUB,
-# reboot, or install packages. It only reports the state of prerequisites.
+# This script does NOT rebind GPUs, edit GRUB, reboot, or touch the NVIDIA
+# driver. The --install mode installs system packages and snaps only.
 set -euo pipefail
 
-CHECK_ONLY=0
+MODE="enforce"
 if [[ "${1:-}" == "--check" ]]; then
-    CHECK_ONLY=1
+    MODE="check"
+elif [[ "${1:-}" == "--install" ]]; then
+    MODE="install"
 elif [[ $# -gt 0 ]]; then
-    echo "usage: $0 [--check]" >&2
+    echo "usage: $0 [--check|--install]" >&2
     exit 2
 fi
 
@@ -40,6 +43,97 @@ report() {
             ;;
     esac
 }
+
+# --- Dependency installation ---
+
+install_deps() {
+    echo "=== Installing host dependencies ==="
+    echo
+
+    # Ensure apt is up to date
+    sudo apt-get update -qq
+
+    # libvirt + qemu + networking tools
+    local apt_pkgs=(
+        libvirt-daemon-system
+        libvirt-clients
+        qemu-system-x86
+        qemu-utils
+        bridge-utils
+        dnsmasq-base
+        ebtables
+        iproute2
+        jq
+        curl
+    )
+
+    local missing_pkgs=()
+    for pkg in "${apt_pkgs[@]}"; do
+        if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+            missing_pkgs+=("$pkg")
+        fi
+    done
+
+    if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
+        echo "Installing apt packages: ${missing_pkgs[*]}"
+        sudo apt-get install -y -qq "${missing_pkgs[@]}"
+    else
+        echo "All apt packages already installed."
+    fi
+
+    # Enable and start libvirtd
+    if ! systemctl is-active --quiet libvirtd 2>/dev/null; then
+        echo "Enabling and starting libvirtd..."
+        sudo systemctl enable --now libvirtd
+    fi
+
+    # Ensure the current user is in the libvirt group (so virsh works
+    # without sudo against qemu:///system)
+    if ! id -nG | grep -qw libvirt; then
+        echo "Adding user $(whoami) to the libvirt group..."
+        sudo usermod -aG libvirt "$(whoami)"
+        echo "  Note: you may need to log out and back in (or run 'newgrp libvirt') for this to take effect."
+    fi
+
+    # Juju via snap
+    if ! command -v juju >/dev/null 2>&1; then
+        echo "Installing Juju via snap..."
+        sudo snap install juju --classic
+    else
+        echo "Juju already installed: $(command -v juju)"
+    fi
+
+    # Vault CLI via snap
+    if ! command -v vault >/dev/null 2>&1; then
+        echo "Installing Vault CLI via snap..."
+        sudo snap install vault
+    else
+        echo "Vault CLI already installed: $(command -v vault)"
+    fi
+
+    # Terraform (from HashiCorp APT repo if not present)
+    if ! command -v terraform >/dev/null 2>&1; then
+        echo "Installing Terraform..."
+        if ! dpkg -s terraform >/dev/null 2>&1; then
+            wget -qO /tmp/terraform-archive-keyring.gpg \
+                https://apt.releases.hashicorp.com/gpg
+            sudo mv /tmp/terraform-archive-keyring.gpg \
+                /usr/share/keyrings/terraform-archive-keyring.gpg
+            echo "deb [signed-by=/usr/share/keyrings/terraform-archive-keyring.gpg] https://apt.releases.hashicorp.com noble main" \
+                | sudo tee /etc/apt/sources.list.d/hashicorp.list >/dev/null
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq terraform
+        fi
+    else
+        echo "Terraform already installed: $(command -v terraform)"
+    fi
+
+    echo
+    echo "=== Dependency installation complete ==="
+    echo
+}
+
+# --- Prerequisite checks ---
 
 # 1. IOMMU enabled in kernel command line AND IOMMU groups present.
 check_iommu() {
@@ -96,7 +190,36 @@ check_juju() {
     fi
 }
 
-# 5. NVIDIA vGPU driver loaded (nvidia_vgpu_vfio or nvidia module).
+# 5. Vault CLI installed.
+check_vault() {
+    if command -v vault >/dev/null 2>&1; then
+        report PASS "Vault CLI installed" "$(command -v vault)"
+    else
+        report FAIL "Vault CLI installed" "vault not found in PATH (run: snap install vault)"
+    fi
+}
+
+# 6. Terraform installed.
+check_terraform() {
+    if command -v terraform >/dev/null 2>&1; then
+        local ver
+        ver="$(terraform version 2>/dev/null | head -1)"
+        report PASS "Terraform installed" "$ver"
+    else
+        report FAIL "Terraform installed" "terraform not found in PATH (>= 1.7 required)"
+    fi
+}
+
+# 7. jq installed.
+check_jq() {
+    if command -v jq >/dev/null 2>&1; then
+        report PASS "jq installed" "$(command -v jq)"
+    else
+        report FAIL "jq installed" "jq not found in PATH (run: apt install jq)"
+    fi
+}
+
+# 8. NVIDIA vGPU driver loaded (nvidia_vgpu_vfio or nvidia module).
 check_nvidia_driver() {
     if lsmod 2>/dev/null | grep -Eq 'nvidia_vgpu_vfio|nvidia'; then
         local mod
@@ -107,7 +230,7 @@ check_nvidia_driver() {
     fi
 }
 
-# 6. sriov-manage tool available at the NVIDIA vGPU software path.
+# 9. sriov-manage tool available at the NVIDIA vGPU software path.
 check_sriov_manage() {
     if [[ -f /usr/lib/nvidia/sriov-manage ]]; then
         report PASS "sriov-manage available" "/usr/lib/nvidia/sriov-manage"
@@ -116,20 +239,30 @@ check_sriov_manage() {
     fi
 }
 
-echo "Host prerequisite checks (mode: $([[ $CHECK_ONLY -eq 1 ]] && echo 'check' || echo 'enforce'))"
+# --- Main ---
+
+# In install mode, install dependencies first, then run checks
+if [[ "$MODE" == "install" ]]; then
+    install_deps
+fi
+
+echo "Host prerequisite checks (mode: $MODE)"
 echo
 
 check_iommu
 check_nvidia_gpu
 check_libvirtd
 check_juju
+check_vault
+check_terraform
+check_jq
 check_nvidia_driver
 check_sriov_manage
 
 echo
 echo "Summary: ${PASS_COUNT} passed, ${WARN_COUNT} warnings, ${FAIL_COUNT} failed"
 
-if [[ $CHECK_ONLY -eq 1 ]]; then
+if [[ "$MODE" == "check" ]]; then
     exit 0
 fi
 
