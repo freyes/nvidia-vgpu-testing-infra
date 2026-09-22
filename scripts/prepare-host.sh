@@ -85,6 +85,22 @@ install_deps() {
     echo "Enabling and starting libvirtd..."
     sudo systemctl enable --now libvirtd
 
+    # Configure IOMMU in GRUB (needed for PCI passthrough / vGPU)
+    if ! grep -q 'intel_iommu=on\|amd_iommu=on' /etc/default/grub 2>/dev/null; then
+        echo "Adding intel_iommu=on to GRUB_CMDLINE_LINUX_DEFAULT..."
+        if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null; then
+            sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="intel_iommu=on /' /etc/default/grub
+        else
+            echo 'GRUB_CMDLINE_LINUX_DEFAULT="intel_iommu=on"' \
+                | sudo tee -a /etc/default/grub >/dev/null
+        fi
+        echo "Running update-grub..."
+        sudo update-grub
+        echo "  Note: a reboot is required for IOMMU to take effect."
+    else
+        echo "IOMMU already configured in /etc/default/grub."
+    fi
+
     # Ensure the current user is in the libvirt group (so virsh works
     # without sudo against qemu:///system)
     if ! id -nG | grep -qw libvirt; then
