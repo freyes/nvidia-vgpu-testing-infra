@@ -9,7 +9,7 @@ locals {
     fi
 
     # --- 2. Start SSH agent and load the generated key ---
-    eval "$$(ssh-agent -s)"
+    eval "$(ssh-agent -s)"
     trap 'kill $${SSH_AGENT_PID} 2>/dev/null || true' EXIT
     ssh-add "$${SSH_KEY_PATH}"
 
@@ -17,8 +17,8 @@ locals {
 
     # --- 3. Discover the juju-controller IP via virsh domifaddr ---
     IP=""
-    for attempt in $$(seq 1 30); do
-      IP=$$(virsh -c "$${LIBVIRT_URI}" domifaddr "$${DOMAIN_NAME}" --source lease 2>/dev/null \
+    for attempt in $(seq 1 30); do
+      IP=$(virsh -c "$${LIBVIRT_URI}" domifaddr "$${DOMAIN_NAME}" --source lease 2>/dev/null \
         | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' \
         | head -1)
       if [ -n "$${IP}" ]; then
@@ -35,7 +35,7 @@ locals {
 
     # --- 4. Wait for SSH to become reachable (up to 60 attempts, 5s apart) ---
     SSH_READY=false
-    for attempt in $$(seq 1 60); do
+    for attempt in $(seq 1 60); do
       if ssh $${SSH_OPTS} ubuntu@"$${IP}" true 2>/dev/null; then
         SSH_READY=true
         break
