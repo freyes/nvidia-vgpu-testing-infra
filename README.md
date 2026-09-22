@@ -94,14 +94,30 @@ make init
 #    make host-ip
 
 # 3. Review the plan (hypervisor_ip is required)
-make plan -var='hypervisor_ip=192.168.1.50'
+TF_VAR_hypervisor_ip=192.168.1.50 make plan
 
 # 4. Apply — creates VMs, bootstraps Juju, deploys OpenStack, inits Vault
-make apply -var='hypervisor_ip=192.168.1.50'
+TF_VAR_hypervisor_ip=192.168.1.50 make apply
 
 # 5. Monitor the deployment
 juju status -m vgpu-controller:openstack
 ```
+
+> **Why `TF_VAR_*` and not `-var=...`?** `make` does **not** pass
+> `-var=...` arguments through to the underlying `terraform` command —
+> `make` interprets them as its own command-line flags, which produces
+> `invalid option` errors. Pass Terraform variables as `TF_VAR_<name>`
+> environment variables instead: `make` forwards environment variables to
+> recipe commands automatically, and Terraform reads `TF_VAR_*` natively.
+>
+> Multiple variables are space-separated on the same line:
+>
+> ```bash
+> TF_VAR_hypervisor_ip=192.168.1.50 TF_VAR_ovn_bridge_interface_mappings=br-ex:ens6 make apply
+> ```
+>
+> Alternatively, place values in a `terraform.tfvars` file (see
+> [Variables](#variables)) and run `make apply` with no prefixes.
 
 The entire deployment is automated by three `null_resource` blocks in
 `terraform/juju.tf`:
@@ -136,7 +152,8 @@ Override per-VM resources with the `vm_config_override` variable (see
 ## Variables
 
 All variables are defined in `terraform/variables.tf`. Required variables
-must be set via `-var` or a `terraform.tfvars` file.
+must be set via `TF_VAR_*` environment variables or a `terraform.tfvars`
+file.
 
 ### Required
 
@@ -338,16 +355,18 @@ Tests verify:
 To create only the VMs without Juju/OpenStack/Vault:
 
 ```bash
-make apply -var='hypervisor_ip=192.168.1.50' \
-           -var='bootstrap_juju=false' \
-           -var='deploy_openstack=false'
+TF_VAR_hypervisor_ip=192.168.1.50 \
+TF_VAR_bootstrap_juju=false \
+TF_VAR_deploy_openstack=false \
+make apply
 ```
 
 To create VMs and bootstrap Juju but skip OpenStack deployment:
 
 ```bash
-make apply -var='hypervisor_ip=192.168.1.50' \
-           -var='deploy_openstack=false'
+TF_VAR_hypervisor_ip=192.168.1.50 \
+TF_VAR_deploy_openstack=false \
+make apply
 ```
 
 Note: `deploy_openstack = true` requires `bootstrap_juju = true` (enforced
@@ -356,7 +375,7 @@ by variable validation).
 ## Cleanup
 
 ```bash
-make destroy -var='hypervisor_ip=192.168.1.50'
+TF_VAR_hypervisor_ip=192.168.1.50 make destroy
 ```
 
 This destroys all Terraform-managed resources: VMs, volumes, network,
