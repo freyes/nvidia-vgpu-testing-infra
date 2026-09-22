@@ -43,5 +43,13 @@ resource "libvirt_domain" "vgpu_vm" {
         source = { file = { path = "/var/log/libvirt/qemu/${each.key}-console.log", append = "on" } }
       }
     ]
+    graphics = [
+      {
+        spice = {
+          auto_port = true
+          listen    = "0.0.0.0"
+        }
+      }
+    ]
   }
 }
