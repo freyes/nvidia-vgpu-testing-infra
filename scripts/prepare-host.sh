@@ -86,6 +86,19 @@ install_deps() {
     echo "Enabling and starting libvirtd..."
     sudo systemctl enable --now libvirtd
 
+    # Configure security_driver=none in qemu.conf (required for vGPU/VFIO
+    # guests, which are incompatible with the default apparmor/selinux sVirt
+    # confinement) and restart libvirtd to pick it up.
+    if ! grep -q '^security_driver' /etc/libvirt/qemu.conf 2>/dev/null; then
+        echo "Configuring security_driver=none in /etc/libvirt/qemu.conf..."
+        echo 'security_driver = "none"' \
+            | sudo tee -a /etc/libvirt/qemu.conf >/dev/null
+        echo "Restarting libvirtd..."
+        sudo systemctl restart libvirtd
+    else
+        echo "security_driver already configured in /etc/libvirt/qemu.conf."
+    fi
+
     # Configure IOMMU in GRUB (needed for PCI passthrough / vGPU)
     if ! grep -q 'intel_iommu=on\|amd_iommu=on' /etc/default/grub 2>/dev/null; then
         echo "Adding intel_iommu=on to GRUB_CMDLINE_LINUX_DEFAULT..."
