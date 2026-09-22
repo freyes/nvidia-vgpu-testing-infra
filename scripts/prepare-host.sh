@@ -65,6 +65,7 @@ install_deps() {
         iproute2
         jq
         curl
+        make
     )
 
     local missing_pkgs=()
