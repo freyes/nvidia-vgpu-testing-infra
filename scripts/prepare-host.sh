@@ -46,6 +46,37 @@ report() {
 
 # --- Dependency installation ---
 
+# Configure ~/.ssh/config to skip host fingerprint validation for the
+# management network and use the generated key, enabling passwordless SSH.
+configure_ssh_client() {
+    local ssh_dir="${HOME}/.ssh"
+    local ssh_config="${ssh_dir}/config"
+    local marker="# nvidia-vgpu-testing-infra (managed)"
+
+    mkdir -p "${ssh_dir}"
+    chmod 700 "${ssh_dir}"
+
+    if [[ -f "${ssh_config}" ]] && grep -qF "${marker}" "${ssh_config}"; then
+        echo "SSH client already configured in ${ssh_config}."
+        return
+    fi
+
+    local ssh_key_path="${SSH_KEY_PATH:-$(pwd)/terraform/ssh_private_key}"
+
+    {
+        echo "${marker}"
+        echo "Host *"
+        echo "    StrictHostKeyChecking no"
+        echo "    UserKnownHostsFile /dev/null"
+        echo "    LogLevel ERROR"
+        [[ -f "${ssh_key_path}" ]] && echo "    IdentityFile ${ssh_key_path}"
+        echo ""
+    } >> "${ssh_config}"
+    chmod 600 "${ssh_config}"
+
+    echo "Configured SSH client: StrictHostKeyChecking=no in ${ssh_config}."
+}
+
 install_deps() {
     echo "=== Installing host dependencies ==="
     echo
@@ -122,6 +153,10 @@ install_deps() {
         sudo usermod -aG libvirt "$(whoami)"
         echo "  Note: you may need to log out and back in (or run 'newgrp libvirt') for this to take effect."
     fi
+
+    # Configure the SSH client to skip host fingerprint validation and use
+    # the generated key, so `ssh ubuntu@<ip>` works passwordless without -i.
+    configure_ssh_client
 
     # Juju via snap
     if ! command -v juju >/dev/null 2>&1; then
