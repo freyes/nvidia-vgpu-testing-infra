@@ -82,10 +82,8 @@ install_deps() {
     fi
 
     # Enable and start libvirtd
-    if ! systemctl is-active --quiet libvirtd 2>/dev/null; then
-        echo "Enabling and starting libvirtd..."
-        sudo systemctl enable --now libvirtd
-    fi
+    echo "Enabling and starting libvirtd..."
+    sudo systemctl enable --now libvirtd
 
     # Ensure the current user is in the libvirt group (so virsh works
     # without sudo against qemu:///system)
