@@ -37,5 +37,11 @@ resource "libvirt_domain" "vgpu_vm" {
         wait_for_ip = { source = "lease", timeout = 300 }
       }
     ]
+    consoles = [
+      {
+        target = { type = "serial", port = 0 }
+        source = { file = { path = "/var/log/libvirt/qemu/${each.key}-console.log", append = "on" } }
+      }
+    ]
   }
 }
