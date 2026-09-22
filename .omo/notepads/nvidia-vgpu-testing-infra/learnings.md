@@ -237,3 +237,45 @@
   on the Terraform host (NOT via SSH to a VM).
 - `bash -n` passes. `terraform validate` passes. `terraform test` passes (7/7).
   Committed as b6bd997.
+
+## T11: Host IP discovery helper (get-host-ip.sh, Makefile, README)
+
+- `scripts/get-host-ip.sh`: `#!/bin/bash`, `set -euo pipefail`. Three modes via
+  single-arg parsing: default (human-readable), `--best-only` (just IP or empty),
+  `--json` (jq-built JSON with `best_guess`, `default_route_interface`,
+  `candidates[]` of `{interface,address}`). Unknown flag → usage to stderr,
+  exit 2.
+- Candidate gathering: `ip -4 -o addr show scope global | awk '{ print $2, $4 }'`
+  parsed into IFACES/ADDRS arrays (CIDR stripped via `${addr%%/*}`). Interface
+  exclusion regex `^(lo|virbr.*|docker.*|lxdbr.*|br-.*|veth.*|tap.*|vnet.*|podman.*)$`
+  applied in-loop. Address exclusion: `169.254.*` (link-local) and `127.*`
+  (loopback) skipped. NOTE: `br-*` (with hyphen) is excluded; bare `br0` is kept
+  — matches the spec's literal `br-*` pattern.
+- Default-route interface: `ip -4 route get 1.1.1.1 2>/dev/null | awk '{ print $5; exit }'`
+  wrapped in `$( ... || true )` to stay alive under `set -e`/pipefail when no
+  default route exists (empty string is valid). `$5` is correct for the
+  `via ... dev <iface>` form; spec mandates this exact command.
+- Best-guess logic: if DEFAULT_IFACE matches a candidate interface, use that
+  address with reason "interface <iface> carries the default route"; else first
+  candidate with reason "no default route; first global IPv4" (no default route)
+  or "default route on <iface> has no global IPv4 candidate; using first
+  candidate" (default route exists but unmatched). Empty best guess when no
+  candidates.
+- Default output marks the default-route candidate with " (default route)" tag.
+  Empty candidate set prints "  (none)" and "Best guess: (none)".
+- `--best-only` prints `printf '%s\n' "$BEST"` (empty → blank line; $(...) strips
+  trailing newline so capture is clean empty).
+- `--json` builds candidates array via `jq -Rn '[inputs|split("\t")|{interface:.[0],address:.[1]}]'`
+  fed by a `printf '%s\t%s\n'` loop (empty input → `[]`, no guard needed), then
+  top-level object via `jq -n --arg --arg --argjson`.
+- Makefile: added `host-ip` to `.PHONY` and target `host-ip: \n\tscripts/get-host-ip.sh`
+  (tab-indented recipe, verified with `cat -A` = `^I`). `make -n host-ip` resolves.
+- README: added a tip comment in the Quick start code block between step 2 and 3
+  (unnumbered, no renumber churn); added `### scripts/get-host-ip.sh` as the first
+  Scripts entry; added `host-ip` row to Make targets table; added the script to
+  the repository structure tree.
+- Verified in this container: `bash -n` passes; script executable; all three
+  modes run (default route = eth0/10.124.242.168, matches candidate); JSON valid
+  (`jq -e` passes); exclusion regex confirmed against lo/virbr*/docker*/lxdbr*/
+  br-*/veth*/tap*/vnet*/podman* (all excluded) and eth0/eno3/br0 (kept). No
+  Terraform .tf files touched; does NOT write Terraform state (print-only).

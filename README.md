@@ -90,6 +90,9 @@ scripts/prepare-host.sh --check
 # 2. Initialize Terraform
 make init
 
+#    (tip) discover the hypervisor management IP for hypervisor_ip below:
+#    make host-ip
+
 # 3. Review the plan (hypervisor_ip is required)
 make plan -var='hypervisor_ip=192.168.1.50'
 
@@ -231,6 +234,22 @@ All charms use `channel: latest/edge` and `series: noble`.
 
 ## Scripts
 
+### `scripts/get-host-ip.sh`
+
+Prints candidate management IPv4 addresses on the host plus a best guess,
+preferring the interface that carries the default route. Useful for finding
+the `hypervisor_ip` value to pass to `make plan`/`make apply`.
+
+```bash
+make host-ip                      # human-readable candidates + best guess
+scripts/get-host-ip.sh --best-only # just the best-guess IP (empty if none)
+scripts/get-host-ip.sh --json      # JSON via jq
+```
+
+Excludes virtual/bridge/container interfaces (`virbr*`, `docker*`, `lxdbr*`,
+`br-*`, `veth*`, `tap*`, `vnet*`, `podman*`, `lo`) and link-local/loopback
+addresses. Does NOT write to any Terraform state — it only prints.
+
 ### `scripts/prepare-host.sh`
 
 Checks hypervisor prerequisites for running nova-compute with NVIDIA vGPU.
@@ -295,6 +314,7 @@ safe.
 | `fmt`     | `terraform -chdir=terraform fmt -recursive` |
 | `validate`| `terraform -chdir=terraform validate` |
 | `test`    | `terraform -chdir=terraform test`    |
+| `host-ip` | `scripts/get-host-ip.sh`             |
 
 ## Testing
 
@@ -376,6 +396,7 @@ nvidia-vgpu-testing-infra/
 │       ├── variables.tftest.hcl     # variable validation tests
 │       └── juju_bootstrap.tftest.hcl # null_resource count tests
 └── scripts/
+    ├── get-host-ip.sh                # hypervisor management IP discovery
     ├── prepare-host.sh              # hypervisor prerequisite checks
     ├── deploy-openstack.sh          # machine registration + bundle deploy
     └── vault-unseal-and-authorise.sh # vault init + unseal + authorize-charm

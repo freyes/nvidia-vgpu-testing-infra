@@ -1,4 +1,4 @@
-.PHONY: init plan apply destroy fmt validate test
+.PHONY: init plan apply destroy fmt validate test host-ip
 
 init:
 	terraform -chdir=terraform init
@@ -20,3 +20,6 @@ validate:
 
 test:
 	terraform -chdir=terraform test
+
+host-ip:
+	scripts/get-host-ip.sh
