@@ -26,7 +26,7 @@ resource "libvirt_domain" "vgpu_vm" {
         target = { dev = "vda", bus = "virtio" }
       },
       {
-        source = { file = { file = libvirt_volume.cloudinit[each.key].path } }
+        source = { file = { file = libvirt_cloudinit_disk.cloudinit[each.key].path } }
         target = { dev = "sda", bus = "sata" }
       }
     ]
