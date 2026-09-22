@@ -23,6 +23,7 @@ resource "libvirt_domain" "vgpu_vm" {
       {
         source = { volume = { pool = libvirt_pool.vgpu.name, volume = libvirt_volume.vm_root[each.key].name } }
         target = { dev = "vda", bus = "virtio" }
+        driver = { name = "qemu", type = "qcow2" }
         device = "disk"
         boot   = { order = 1 }
       },
