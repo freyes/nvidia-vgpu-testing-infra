@@ -20,17 +20,25 @@ fi
 
 PASS_COUNT=0
 FAIL_COUNT=0
+WARN_COUNT=0
 
 # report <status> <name> <detail>
 report() {
     local status="$1" name="$2" detail="${3:-}"
-    if [[ "$status" == "PASS" ]]; then
-        printf 'PASS  %s%s\n' "$name" "${detail:+  — $detail}"
-        PASS_COUNT=$((PASS_COUNT + 1))
-    else
-        printf 'FAIL  %s%s\n' "$name" "${detail:+  — $detail}"
-        FAIL_COUNT=$((FAIL_COUNT + 1))
-    fi
+    case "$status" in
+        PASS)
+            printf 'PASS  %s%s\n' "$name" "${detail:+  — $detail}"
+            PASS_COUNT=$((PASS_COUNT + 1))
+            ;;
+        WARN)
+            printf 'WARN  %s%s\n' "$name" "${detail:+  — $detail}"
+            WARN_COUNT=$((WARN_COUNT + 1))
+            ;;
+        *)
+            printf 'FAIL  %s%s\n' "$name" "${detail:+  — $detail}"
+            FAIL_COUNT=$((FAIL_COUNT + 1))
+            ;;
+    esac
 }
 
 # 1. IOMMU enabled in kernel command line AND IOMMU groups present.
@@ -95,7 +103,7 @@ check_nvidia_driver() {
         mod="$(lsmod 2>/dev/null | awk '/^(nvidia_vgpu_vfio|nvidia)/ {print $1; exit}')"
         report PASS "NVIDIA vGPU driver loaded" "module ${mod:-nvidia*} loaded"
     else
-        report FAIL "NVIDIA vGPU driver loaded" "neither nvidia_vgpu_vfio nor nvidia in lsmod"
+        report WARN "NVIDIA vGPU driver loaded" "neither nvidia_vgpu_vfio nor nvidia in lsmod (the driver may not be installed yet)"
     fi
 }
 
@@ -104,7 +112,7 @@ check_sriov_manage() {
     if [[ -f /usr/lib/nvidia/sriov-manage ]]; then
         report PASS "sriov-manage available" "/usr/lib/nvidia/sriov-manage"
     else
-        report FAIL "sriov-manage available" "/usr/lib/nvidia/sriov-manage not found"
+        report WARN "sriov-manage available" "/usr/lib/nvidia/sriov-manage not found (install the NVIDIA vGPU software package)"
     fi
 }
 
@@ -119,7 +127,7 @@ check_nvidia_driver
 check_sriov_manage
 
 echo
-echo "Summary: ${PASS_COUNT} passed, ${FAIL_COUNT} failed"
+echo "Summary: ${PASS_COUNT} passed, ${WARN_COUNT} warnings, ${FAIL_COUNT} failed"
 
 if [[ $CHECK_ONLY -eq 1 ]]; then
     exit 0
