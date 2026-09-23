@@ -145,7 +145,7 @@ add_machine_and_get_id() {
 declare -A MACHINE_JUJU_IDS
 for i in "${!VM_DOMAINS[@]}"; do
     domain="${VM_DOMAINS[$i]}"
-    bundle_id=$((i + 1))
+    bundle_id=$i
     ip="${VM_IPS[$domain]}"
 
     juju_id=$(get_machine_id_by_ip "$ip")
@@ -193,16 +193,16 @@ echo "=== Deploying bundle ==="
 # Build --map-machines argument. Start with "existing" (matches bundle
 # machine IDs to Juju machine IDs by number), then add explicit mappings
 # where the bundle ID differs from the Juju-assigned ID. The hypervisor
-# is bundle machine 12 and always needs an explicit mapping to the Juju
+# is bundle machine 11 and always needs an explicit mapping to the Juju
 # machine ID assigned by `juju add-machine`.
 MAP_ARG="existing"
-for bundle_id in 1 2 3 4 5 6 7 8 9 10 11; do
+for bundle_id in 0 1 2 3 4 5 6 7 8 9 10; do
     juju_id="${MACHINE_JUJU_IDS[$bundle_id]}"
     if [ "$bundle_id" != "$juju_id" ]; then
         MAP_ARG="$MAP_ARG,$bundle_id=$juju_id"
     fi
 done
-MAP_ARG="$MAP_ARG,12=$hypervisor_juju_id"
+MAP_ARG="$MAP_ARG,11=$hypervisor_juju_id"
 
 echo "  Map machines: $MAP_ARG"
 juju deploy -m "$MODEL" "$BUNDLE_OUTPUT" --trust --map-machines="$MAP_ARG"

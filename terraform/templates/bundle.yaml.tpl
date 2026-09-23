@@ -1,6 +1,7 @@
 series: noble
 
 machines:
+  '0': {}
   '1': {}
   '2': {}
   '3': {}
@@ -12,7 +13,6 @@ machines:
   '9': {}
   '10': {}
   '11': {}
-  '12': {}
 
 applications:
   mysql-innodb-cluster:
@@ -22,9 +22,9 @@ applications:
     num_units: 3
     constraints: mem=3072M
     to:
+      - '0'
       - '1'
       - '2'
-      - '3'
 
   rabbitmq-server:
     charm: ch:rabbitmq-server
@@ -32,7 +32,7 @@ applications:
     series: noble
     num_units: 1
     to:
-      - '4'
+      - '3'
 
   keystone:
     charm: ch:keystone
@@ -42,7 +42,7 @@ applications:
     options:
       openstack-origin: distro
     to:
-      - '5'
+      - '4'
 
   glance:
     charm: ch:glance
@@ -52,7 +52,7 @@ applications:
     options:
       openstack-origin: distro
     to:
-      - '6'
+      - '5'
 
   nova-cloud-controller:
     charm: ch:nova-cloud-controller
@@ -63,7 +63,7 @@ applications:
       network-manager: Neutron
       openstack-origin: distro
     to:
-      - '7'
+      - '6'
 
   placement:
     charm: ch:placement
@@ -73,7 +73,7 @@ applications:
     options:
       openstack-origin: distro
     to:
-      - '8'
+      - '7'
 
   neutron-api:
     charm: ch:neutron-api
@@ -86,7 +86,7 @@ applications:
       neutron-security-groups: true
       openstack-origin: distro
     to:
-      - '9'
+      - '8'
 
   ovn-central:
     charm: ch:ovn-central
@@ -96,7 +96,7 @@ applications:
     options:
       source: distro
     to:
-      - '10'
+      - '9'
 
   vault:
     charm: ch:vault
@@ -104,7 +104,7 @@ applications:
     series: noble
     num_units: 1
     to:
-      - '11'
+      - '10'
 
   nova-compute:
     charm: ch:nova-compute
@@ -116,7 +116,7 @@ applications:
       enable-live-migration: false
       config-flags: default_ephemeral_format=ext4
     to:
-      - '12'
+      - '11'
 
   nova-compute-nvidia-vgpu:
     charm: ch:nova-compute-nvidia-vgpu
