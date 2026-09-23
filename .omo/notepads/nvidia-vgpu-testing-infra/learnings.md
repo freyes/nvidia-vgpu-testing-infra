@@ -279,3 +279,46 @@
   (`jq -e` passes); exclusion regex confirmed against lo/virbr*/docker*/lxdbr*/
   br-*/veth*/tap*/vnet*/podman* (all excluded) and eth0/eno3/br0 (kept). No
   Terraform .tf files touched; does NOT write Terraform state (print-only).
+
+## T12: TF_VAR_* convention for terraform variables through make (README only)
+
+- README-only change: replaced all `make ... -var='...'` examples with
+  `TF_VAR_*=... make ...` syntax. No Makefile, .tf, or script changes.
+- Sections updated: Quick start (steps 3-4 + new blockquote note),
+  Variables section intro line ("must be set via `-var`" -> "via `TF_VAR_*`
+  environment variables"), Disabling automation (both code blocks),
+  Cleanup (destroy example).
+- Blockquote note explains the "why": `make` interprets `-var=...` as its
+  own flags (NOT forwarded to terraform), causing "invalid option" errors.
+  `TF_VAR_<name>` env vars are forwarded by make automatically and read by
+  terraform natively. Multi-var example shown space-separated on one line;
+  `terraform.tfvars` mentioned as alternative.
+- Verification: `grep -q 'TF_VAR_hypervisor_ip' README.md` PASS;
+  `grep -q 'make plan -var' README.md` FAIL (absent) PASS;
+  `grep -nE 'make (plan|apply|destroy) -var' README.md` returns nothing.
+  Only remaining `-var` references are inside the explanatory blockquote
+  telling users NOT to use them (descriptive, not examples).
+- Committed as <pending>.
+
+## T13: Remove libvirt_volume.cloudinit wrapper; attach cloudinit ISO directly
+
+- Root cause: `libvirt_cloudinit_disk` (provider v0.9.9) `path` computed
+  attribute lacks `UseStateForUnknown()` plan modifier
+  (internal/provider/cloudinit_disk_resource.go:123-126). During apply,
+  `libvirt_volume.cloudinit[*]` (whose `create.content.url` reads that path)
+  receives an Unknown value, leaving its internal status at `ObjectStatus(0)`,
+  which Terraform refuses to serialize and panics.
+- Fix: deleted the entire `libvirt_volume.cloudinit` resource block from
+  volumes.tf. In domains.tf, changed the cloudinit disk source from
+  `libvirt_volume.cloudinit[each.key].path` to
+  `libvirt_cloudinit_disk.cloudinit[each.key].path` (direct reference).
+- `libvirt_cloudinit_disk` already generates a real ISO file on disk (temp
+  dir keyed by content checksum), so the domain can boot directly from that
+  file path — no intermediate `libvirt_volume` wrapper needed.
+- Did NOT add `pool` to `libvirt_cloudinit_disk` (no such schema argument).
+  Did NOT touch cloudinit.tf, root volume, or any other resource.
+- Verification: `terraform validate` PASS; `terraform test` 7/7 PASS;
+  `terraform fmt -check -recursive` PASS; `grep "libvirt_volume.*cloudinit"
+  volumes.tf` returns nothing; `grep "libvirt_cloudinit_disk.cloudinit\[each.key\].path"
+  domains.tf` matches line 29.
+- Committed as b230dd4.
