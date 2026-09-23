@@ -33,6 +33,7 @@ JUJU_MODEL_NAME="${JUJU_MODEL_NAME:?JUJU_MODEL_NAME is required}"
 HYPERVISOR_IP="${HYPERVISOR_IP:?HYPERVISOR_IP is required}"
 HYPERVISOR_SSH_USER="${HYPERVISOR_SSH_USER:?HYPERVISOR_SSH_USER is required}"
 SSH_KEY_PATH="${SSH_KEY_PATH:?SSH_KEY_PATH is required}"
+SSH_PUBLIC_KEY_PATH="${SSH_PUBLIC_KEY_PATH:?SSH_PUBLIC_KEY_PATH is required}"
 LIBVIRT_URI="${LIBVIRT_URI:?LIBVIRT_URI is required}"
 OVN_BRIDGE_MAPPINGS="${OVN_BRIDGE_MAPPINGS:?OVN_BRIDGE_MAPPINGS is required}"
 OVN_BRIDGE_INTERFACE_MAPPINGS="${OVN_BRIDGE_INTERFACE_MAPPINGS:?OVN_BRIDGE_INTERFACE_MAPPINGS is required}"
@@ -162,6 +163,14 @@ for i in "${!VM_DOMAINS[@]}"; do
 done
 
 # Register the hypervisor (idempotent).
+echo "=== Installing public key on hypervisor ($HYPERVISOR_SSH_USER@$HYPERVISOR_IP) ==="
+if ! command -v ssh-copy-id >/dev/null 2>&1; then
+    echo "ERROR: ssh-copy-id not found. Install openssh-client." >&2
+    exit 1
+fi
+ssh-copy-id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    -i "$SSH_PUBLIC_KEY_PATH" "${HYPERVISOR_SSH_USER}@${HYPERVISOR_IP}"
+
 hypervisor_juju_id=$(get_machine_id_by_ip "$HYPERVISOR_IP")
 if [ -n "$hypervisor_juju_id" ]; then
     echo "  hypervisor ($HYPERVISOR_IP): already registered as machine $hypervisor_juju_id"

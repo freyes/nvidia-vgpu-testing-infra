@@ -129,6 +129,7 @@ resource "null_resource" "juju_deploy" {
       HYPERVISOR_IP                 = var.hypervisor_ip
       HYPERVISOR_SSH_USER           = var.hypervisor_ssh_user
       SSH_KEY_PATH                  = abspath(local_sensitive_file.ssh_private_key.filename)
+      SSH_PUBLIC_KEY_PATH           = abspath(local_file.ssh_public_key.filename)
       LIBVIRT_URI                   = var.libvirt_uri
       OVN_BRIDGE_MAPPINGS           = var.ovn_bridge_mappings
       OVN_BRIDGE_INTERFACE_MAPPINGS = var.ovn_bridge_interface_mappings
