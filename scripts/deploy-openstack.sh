@@ -164,12 +164,16 @@ done
 
 # Register the hypervisor (idempotent).
 echo "=== Installing public key on hypervisor ($HYPERVISOR_SSH_USER@$HYPERVISOR_IP) ==="
-if ! command -v ssh-copy-id >/dev/null 2>&1; then
-    echo "ERROR: ssh-copy-id not found. Install openssh-client." >&2
+SSH_OPTS_HV="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+if ! ssh $SSH_OPTS_HV "${HYPERVISOR_SSH_USER}@${HYPERVISOR_IP}" true 2>/dev/null; then
+    echo "ERROR: cannot reach hypervisor via ssh (do you have an existing credential?)" >&2
     exit 1
 fi
-ssh-copy-id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-    -i "$SSH_PUBLIC_KEY_PATH" "${HYPERVISOR_SSH_USER}@${HYPERVISOR_IP}"
+ssh $SSH_OPTS_HV "${HYPERVISOR_SSH_USER}@${HYPERVISOR_IP}" \
+    "mkdir -p ~/.ssh && chmod 700 ~/.ssh && \
+     grep -qxF \"\$(cat)\" ~/.ssh/authorized_keys 2>/dev/null || \
+     cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys" \
+    < "$SSH_PUBLIC_KEY_PATH"
 
 hypervisor_juju_id=$(get_machine_id_by_ip "$HYPERVISOR_IP")
 if [ -n "$hypervisor_juju_id" ]; then
