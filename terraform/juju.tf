@@ -51,8 +51,12 @@ locals {
 
     # --- 5. Wait for cloud-init to finish ---
     echo "Waiting for cloud-init to finish on $${IP}..."
-    ssh $${SSH_OPTS} ubuntu@"$${IP}" cloud-init status --wait
-    echo "cloud-init finished on $${IP}"
+    ssh $${SSH_OPTS} ubuntu@"$${IP}" "cloud-init status --wait || true"
+    cloudinit_status="$(ssh $${SSH_OPTS} ubuntu@"$${IP}" "cloud-init status" 2>/dev/null || true)"
+    echo "cloud-init status on $${IP}: $${cloudinit_status}"
+    if ! echo "$${cloudinit_status}" | grep -q 'status: done'; then
+      echo "WARNING: cloud-init reported: $${cloudinit_status} (continuing anyway)" >&2
+    fi
 
     # --- 6. Check if the controller already exists; skip bootstrap if so ---
     if juju controllers --format=json 2>/dev/null \
