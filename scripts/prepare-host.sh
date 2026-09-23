@@ -61,7 +61,7 @@ configure_ssh_client() {
         return
     fi
 
-    local ssh_key_path="${SSH_KEY_PATH:-$(pwd)/terraform/ssh_private_key}"
+    local ssh_key_path="${ssh_dir}/vgpu_ssh_key"
 
     {
         echo "${marker}"
@@ -69,12 +69,12 @@ configure_ssh_client() {
         echo "    StrictHostKeyChecking no"
         echo "    UserKnownHostsFile /dev/null"
         echo "    LogLevel ERROR"
-        [[ -f "${ssh_key_path}" ]] && echo "    IdentityFile ${ssh_key_path}"
+        echo "    IdentityFile ${ssh_key_path}"
         echo ""
     } >> "${ssh_config}"
     chmod 600 "${ssh_config}"
 
-    echo "Configured SSH client: StrictHostKeyChecking=no in ${ssh_config}."
+    echo "Configured SSH client: IdentityFile=${ssh_key_path} in ${ssh_config}."
 }
 
 install_deps() {

@@ -5,6 +5,12 @@ resource "tls_private_key" "ssh" {
 
 resource "local_sensitive_file" "ssh_private_key" {
   content         = tls_private_key.ssh.private_key_pem
+  filename        = pathexpand("~/.ssh/vgpu_ssh_key")
+  file_permission = "0600"
+}
+
+resource "local_sensitive_file" "ssh_private_key_repo" {
+  content         = tls_private_key.ssh.private_key_pem
   filename        = "${path.module}/ssh_private_key"
   file_permission = "0600"
 }
