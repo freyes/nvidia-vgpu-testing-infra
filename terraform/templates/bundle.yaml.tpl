@@ -12,7 +12,7 @@ machines:
   '9': {}
   '10': {}
   '11': {}
-  hypervisor: {}
+  '12': {}
 
 applications:
   mysql-innodb-cluster:
@@ -116,7 +116,7 @@ applications:
       enable-live-migration: false
       config-flags: default_ephemeral_format=ext4
     to:
-      - hypervisor
+      - '12'
 
   nova-compute-nvidia-vgpu:
     charm: ch:nova-compute-nvidia-vgpu
