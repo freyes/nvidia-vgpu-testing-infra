@@ -119,8 +119,7 @@ applications:
       - '11'
 
   nova-compute-nvidia-vgpu:
-    charm: ch:nova-compute-nvidia-vgpu
-    channel: latest/edge
+    charm: ${nvidia_vgpu_charm_path}
     series: noble
     options:
       vgpu-mode: auto

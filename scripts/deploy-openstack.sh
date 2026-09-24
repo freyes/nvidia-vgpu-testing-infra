@@ -104,9 +104,20 @@ echo "  Juju controller is ready"
 # --- 6. Render the bundle from the template ---
 echo "=== Rendering bundle ==="
 BUNDLE_OUTPUT="${BUNDLE_TEMPLATE_PATH%.tpl}"
+
+REPO_ROOT="$(cd "$(dirname "$BUNDLE_TEMPLATE_PATH")/.." && pwd)"
+NVIDIA_VGPU_CHARM="${REPO_ROOT}/nova-compute-nvidia-vgpu_amd64.charm"
+
+if [[ ! -f "$NVIDIA_VGPU_CHARM" ]]; then
+    echo "ERROR: nova-compute-nvidia-vgpu charm not found at: $NVIDIA_VGPU_CHARM" >&2
+    echo "       Place the charm file at the repository root." >&2
+    exit 1
+fi
+
 export ovn_bridge_mappings="$OVN_BRIDGE_MAPPINGS"
 export ovn_bridge_interface_mappings="$OVN_BRIDGE_INTERFACE_MAPPINGS"
-envsubst '${ovn_bridge_mappings} ${ovn_bridge_interface_mappings}' \
+export nvidia_vgpu_charm_path="$NVIDIA_VGPU_CHARM"
+envsubst '${ovn_bridge_mappings} ${ovn_bridge_interface_mappings} ${nvidia_vgpu_charm_path}' \
     < "$BUNDLE_TEMPLATE_PATH" > "$BUNDLE_OUTPUT"
 echo "  Rendered bundle: $BUNDLE_OUTPUT"
 
