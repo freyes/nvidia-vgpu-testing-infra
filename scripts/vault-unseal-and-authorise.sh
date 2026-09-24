@@ -16,8 +16,8 @@ JUJU_CONTROLLER_NAME="${JUJU_CONTROLLER_NAME:-vgpu-controller}"
 MODEL="${JUJU_CONTROLLER_NAME}:${JUJU_MODEL}"
 
 # --- 2. Install dependencies if missing ---
-command -v vault > /dev/null 2>&1 || sudo snap install vault
-command -v jq > /dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y jq; }
+command -v vault > /dev/null 2>&1 || sudo snap install vault > /dev/null 2>&1
+command -v jq > /dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y jq; } > /dev/null 2>&1
 
 # --- 3. Get model name and UUID ---
 model=$(juju show-model --format=json | jq -r '. | keys[]')
