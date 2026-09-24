@@ -174,10 +174,17 @@ install_deps() {
         echo "Vault CLI already installed: $(command -v vault)"
     fi
 
-    # Terraform via snap
+    # Terraform from HashiCorp APT repo
     if ! command -v terraform >/dev/null 2>&1; then
-        echo "Installing Terraform via snap..."
-        sudo snap install terraform --classic
+        echo "Installing Terraform from HashiCorp APT repo..."
+        wget -qO /tmp/hashicorp-archive-keyring.gpg \
+            https://apt.releases.hashicorp.com/gpg
+        sudo install -o root -g root -m 644 /tmp/hashicorp-archive-keyring.gpg \
+            /usr/share/keyrings/hashicorp-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com noble main" \
+            | sudo tee /etc/apt/sources.list.d/hashicorp.list >/dev/null
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq terraform
     else
         echo "Terraform already installed: $(command -v terraform)"
     fi
