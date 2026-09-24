@@ -63,19 +63,34 @@ echo "  Model:   $MODEL"
 echo "  Leader:  $leader ($leader_addr)"
 echo "  Units:   ${addrs[*]}"
 
-# --- 6. Check vault status; initialize only if uninitialized ---
-# vault status exit codes: 0 = unsealed, 1 = sealed, 2 = uninitialized
+# --- 6. Wait for vault API to be reachable, then check status ---
 export VAULT_ADDR="http://${leader_addr}:8200"
-set +e
-vault status > /dev/null 2>&1
-leader_status_rc=$?
-set -e
+echo "Waiting for vault API at ${VAULT_ADDR}..."
+for attempt in $(seq 1 60); do
+    set +e
+    vault status > /dev/null 2>&1
+    leader_status_rc=$?
+    set -e
+    if [ "$leader_status_rc" -eq 0 ] || [ "$leader_status_rc" -eq 1 ] || [ "$leader_status_rc" -eq 2 ]; then
+        echo "  Vault API is responding (status rc=$leader_status_rc)."
+        break
+    fi
+    echo "  Waiting for vault API (attempt ${attempt}/60)..."
+    sleep 10
+done
+
+if [ "$leader_status_rc" -ne 0 ] && [ "$leader_status_rc" -ne 1 ] && [ "$leader_status_rc" -ne 2 ]; then
+    echo "ERROR: vault API not reachable after 60 attempts (rc=$leader_status_rc)" >&2
+    exit 1
+fi
+
+# vault status exit codes: 0 = unsealed, 1 = sealed, 2 = uninitialized
 
 if [ "$leader_status_rc" -eq 2 ]; then
     echo "  Vault is not initialized. Initializing..."
     echo "$model_uuid" > "$unseal_output"
     chmod 600 "$unseal_output"
-    vault operator init -key-shares=5 -key-threshold=3 &>> "$unseal_output"
+    vault operator init -key-shares=5 -key-threshold=3 >> "$unseal_output" 2>&1
     echo "  Vault initialized. Unseal output saved to: $unseal_output"
 elif [ "$leader_status_rc" -eq 0 ]; then
     echo "  Vault leader is already initialized and unsealed."
