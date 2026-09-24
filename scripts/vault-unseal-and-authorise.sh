@@ -29,7 +29,7 @@ umask 077
 unseal_output="${HOME}/unseal_output.${model}"
 
 # --- 5. Wait for vault application to appear, then get addresses ---
-ftmp=$(mktemp)
+ftmp=$(mktemp --tmpdir=$(pwd))
 trap 'rm -f "$ftmp"' EXIT
 
 echo "Waiting for vault application to be ready..."
