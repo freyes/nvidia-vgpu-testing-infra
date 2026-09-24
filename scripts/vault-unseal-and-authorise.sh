@@ -30,7 +30,7 @@ unseal_output="${HOME}/unseal_output.${model}"
 # --- 5. Get vault unit addresses and leader ---
 ftmp=$(mktemp)
 trap 'rm -f "$ftmp"' EXIT
-juju status -m "$MODEL" --format=json vault > "$ftmp"
+juju status -m "$MODEL" --format=json vault > "$ftmp" 2>&1
 readarray -t addrs < <(jq -r '.applications[].units[]?."public-address" | select(. != null)' "$ftmp" 2>/dev/null)
 leader="$(jq -r '.applications[] | select(."charm-name"=="vault") | .units | to_entries[] | select(.value.leader==true) | .key' "$ftmp" 2>/dev/null)"
 leader_addr="$(jq -r '.applications[]| select(."charm-name"=="vault") |.units | to_entries[] | select(.value.leader==true) | .value."public-address"' "$ftmp" 2>/dev/null)"
@@ -101,7 +101,7 @@ done
 # --- 9. Authorize the charm ---
 export VAULT_TOKEN="$token"
 echo "  Authorizing vault charm..."
-juju run -m "$MODEL" vault/leader authorize-charm token="$token"
+juju run -m "$MODEL" vault/leader authorize-charm token="$token" 2>&1
 
 # --- 10. Summary ---
 echo "=== Vault initialization complete ==="
