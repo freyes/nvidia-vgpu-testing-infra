@@ -28,16 +28,29 @@ model_uuid=$(juju show-model --format=json | jq -r '.[]."model-uuid"')
 umask 077
 unseal_output="${HOME}/unseal_output.${model}"
 
-# --- 5. Get vault unit addresses and leader ---
+# --- 5. Wait for vault application to appear, then get addresses ---
 ftmp=$(mktemp)
 trap 'rm -f "$ftmp"' EXIT
-juju status -m "$MODEL" --format=json vault > "$ftmp" 2>&1
-readarray -t addrs < <(jq -r '.applications[].units[]?."public-address" | select(. != null)' "$ftmp" 2>/dev/null)
-leader="$(jq -r '.applications[] | select(."charm-name"=="vault") | .units | to_entries[] | select(.value.leader==true) | .key' "$ftmp" 2>/dev/null)"
-leader_addr="$(jq -r '.applications[]| select(."charm-name"=="vault") |.units | to_entries[] | select(.value.leader==true) | .value."public-address"' "$ftmp" 2>/dev/null)"
+
+echo "Waiting for vault application to be ready..."
+leader=""
+leader_addr=""
+addrs=()
+for attempt in $(seq 1 60); do
+    juju status -m "$MODEL" --format=json vault > "$ftmp" 2>/dev/null || true
+    leader="$(jq -r '.applications[] | select(."charm-name"=="vault") | .units | to_entries[] | select(.value.leader==true) | .key' "$ftmp" 2>/dev/null)"
+    leader_addr="$(jq -r '.applications[]| select(."charm-name"=="vault") |.units | to_entries[] | select(.value.leader==true) | .value."public-address"' "$ftmp" 2>/dev/null)"
+    if [[ -n "$leader" ]] && [[ -n "$leader_addr" ]]; then
+        readarray -t addrs < <(jq -r '.applications[].units[]?."public-address" | select(. != null)' "$ftmp" 2>/dev/null)
+        echo "  Vault leader found: $leader ($leader_addr)"
+        break
+    fi
+    echo "  Waiting for vault (attempt ${attempt}/60)..."
+    sleep 10
+done
 
 if [[ -z "$leader" ]] || [[ -z "$leader_addr" ]]; then
-    echo "ERROR: Cannot identify vault leader or leader address" >&2
+    echo "ERROR: vault leader not found after 60 attempts" >&2
     exit 1
 fi
 if [ ${#addrs[@]} -eq 0 ]; then
