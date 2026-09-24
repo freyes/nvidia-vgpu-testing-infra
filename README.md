@@ -2,7 +2,7 @@
 
 Terraform automation that provisions a minimal Charmed OpenStack environment
 suitable for testing `nova-compute-nvidia-vgpu`. The infrastructure consists
-of 12 Ubuntu Noble libvirt VMs for the OpenStack control plane and a Juju
+of 14 Ubuntu Noble libvirt VMs for the OpenStack control plane and a Juju
 controller, while **nova-compute runs directly on the hypervisor** — where
 the NVIDIA GPU already lives, avoiding nested virtualization and PCI
 passthrough complexity.
@@ -40,6 +40,10 @@ subordinate charm), and initialises Vault for OVN TLS certificates.
 │  │ VM: neutron │  │ VM: ovn-   │  │ VM: vault  │  │
 │  │ api         │  │ central    │  │             │  │
 │  └─────────────┘  └─────────────┘  └─────────────┘  │
+│  ┌─────────────┐  ┌─────────────┐                   │
+│  │ VM: ovn-    │  │ VM: ovn-    │                   │
+│  │ central-1   │  │ central-2   │                   │
+│  └─────────────┘  └─────────────┘                   │
 │                                                     │
 │  ┌─────────────────────────────────────────────┐    │
 │  │ nova-compute (Juju machine, NOT a VM)         │    │
@@ -53,7 +57,7 @@ subordinate charm), and initialises Vault for OVN TLS certificates.
 └─────────────────────────────────────────────────────┘
 ```
 
-All 12 VMs are on a single libvirt NAT network (management). nova-compute
+All 14 VMs are on a single libvirt NAT network (management). nova-compute
 runs on the hypervisor itself and uses the hypervisor's physical network
 interface for OVN provider network traffic.
 
@@ -68,7 +72,7 @@ interface for OVN provider network traffic.
   - An **NVIDIA GPU with vGPU support** (e.g. A16, A30, A40, A100) and the
     NVIDIA vGPU driver installed (`nvidia-vgpu-mgr` running)
   - `sriov-manage` tool available at `/usr/lib/nvidia/sriov-manage`
-  - Sufficient CPU, memory, and disk for 12 VMs (see
+  - Sufficient CPU, memory, and disk for 14 VMs (see
     [Sizing](#sizing) below)
 
 ### On the hypervisor (the future nova-compute unit)
@@ -164,7 +168,7 @@ The entire deployment is automated by three `null_resource` blocks in
 1. **`null_resource.juju_bootstrap`** — bootstraps a Juju controller on
    the `juju-controller` VM using `juju bootstrap manual/ubuntu@<ip>`,
    then creates the `openstack` workload model.
-2. **`null_resource.juju_deploy`** — registers the 11 control-plane VMs
+2. **`null_resource.juju_deploy`** — registers the 13 control-plane VMs
    and the hypervisor as manual Juju machines, then runs
    `juju deploy bundle.yaml --trust --map-machines=existing`.
 3. **`null_resource.vault_init`** — initialises Vault (`vault operator
@@ -177,13 +181,13 @@ All three are gated by variables and can be toggled off (see
 ## Sizing
 
 Default VM sizing is intentionally minimal (2 vCPUs, 4 GiB RAM, 30 GB
-root disk per VM). With 12 VMs this requires at minimum:
+root disk per VM). With 14 VMs this requires at minimum:
 
 | Resource   | Minimum (defaults) | Recommended |
 |------------|-------------------|------------|
-| vCPUs      | 24                | 48+        |
-| Memory     | 48 GiB            | 96+ GiB    |
-| Disk       | 360 GB            | 500+ GB    |
+| vCPUs      | 28                | 56+        |
+| Memory     | 56 GiB            | 112+ GiB   |
+| Disk       | 420 GB            | 600+ GB    |
 
 Override per-VM resources with the `vm_config_override` variable (see
 [Variables](#variables)).
@@ -229,7 +233,7 @@ keys are the VM names defined in `terraform/locals.tf`:
 
 `juju-controller`, `mysql-0`, `mysql-1`, `mysql-2`, `rabbitmq`,
 `keystone`, `glance`, `nova-cloud-controller`, `placement`,
-`neutron-api`, `ovn-central`, `vault`
+`neutron-api`, `ovn-central`, `ovn-central-1`, `ovn-central-2`, `vault`
 
 Example `terraform.tfvars`:
 
@@ -250,20 +254,20 @@ vm_config_override = {
 The bundle is rendered from `terraform/templates/bundle.yaml.tpl` and
 deployed with `juju deploy --trust --map-machines=existing`. It defines:
 
-### Principal applications (one unit per VM)
+### Principal applications (one unit per VM, except ovn-central at 3)
 
-| Application             | VM              | Machine ID | Options                          |
-|------------------------|-----------------|------------|----------------------------------|
-| mysql-innodb-cluster   | mysql-0/1/2     | 1, 2, 3    | `constraints: mem=3072M`         |
-| rabbitmq-server        | rabbitmq        | 4          |                                  |
-| keystone               | keystone        | 5          | `openstack-origin: distro`       |
-| glance                 | glance          | 6          | `openstack-origin: distro`        |
-| nova-cloud-controller  | nova-cloud-ctrl | 7          | `network-manager: Neutron`        |
-| placement              | placement       | 8          | `openstack-origin: distro`        |
-| neutron-api            | neutron-api     | 9          | `manage-neutron-plugin-legacy-mode: false` |
-| ovn-central            | ovn-central     | 10         | `source: distro`                 |
-| vault                  | vault           | 11         |                                  |
-| nova-compute           | hypervisor       | hypervisor | `openstack-origin: distro`, `enable-live-migration: false` |
+| Application             | VM                        | Machine ID   | Options                          |
+|------------------------|---------------------------|--------------|----------------------------------|
+| mysql-innodb-cluster   | mysql-0/1/2               | 0, 1, 2      | `constraints: mem=3072M`         |
+| rabbitmq-server        | rabbitmq                  | 3            |                                  |
+| keystone               | keystone                  | 4            | `openstack-origin: distro`       |
+| glance                 | glance                    | 5            | `openstack-origin: distro`        |
+| nova-cloud-controller  | nova-cloud-controller     | 6            | `network-manager: Neutron`        |
+| placement              | placement                 | 7            | `openstack-origin: distro`        |
+| neutron-api            | neutron-api               | 8            | `manage-neutron-plugin-legacy-mode: false` |
+| ovn-central            | ovn-central/1/2           | 9, 12, 13    | `source: distro` (3 units)       |
+| vault                  | vault                     | 10           |                                  |
+| nova-compute           | hypervisor                | 11           | `openstack-origin: distro`, `enable-live-migration: false` |
 
 ### Subordinate applications
 
@@ -279,7 +283,7 @@ All charms use `channel: latest/edge` and `series: noble`.
 ### Networking
 
 - **Management network**: libvirt NAT (`192.168.100.0/24` by default) with
-  DHCP. All 12 VMs are attached. The Juju controller, control-plane charms,
+  DHCP. All 14 VMs are attached. The Juju controller, control-plane charms,
   and nova-compute communicate over this network.
 - **Provider network**: OVN `physnet1` mapped to `br-ex` on the hypervisor.
   The `ovn-chassis` charm configures `ovn-bridge-mappings` and
@@ -330,9 +334,9 @@ hypervisor (see [On the hypervisor](#on-the-hypervisor-the-future-nova-compute-u
 Accepts `--dry-run` to render the bundle without deploying.
 
 Workflow:
-1. Discovers 11 control-plane VM IPs via `virsh domifaddr` (local libvirt)
+1. Discovers 13 control-plane VM IPs via `virsh domifaddr` (local libvirt)
 2. Waits for Juju controller readiness
-3. Registers 11 VMs + the hypervisor as manual Juju machines (idempotent —
+3. Registers 13 VMs + the hypervisor as manual Juju machines (idempotent —
    checks `juju machines` by IP before adding)
 4. Installs the generated SSH public key in the **local**
    `~/.ssh/authorized_keys` so Juju can register the hypervisor as a
@@ -441,12 +445,12 @@ nvidia-vgpu-testing-infra/
 │   ├── versions.tf                  # provider pins (libvirt = 0.9.9)
 │   ├── providers.tf                 # libvirt provider config
 │   ├── variables.tf                 # all variables with descriptions
-│   ├── locals.tf                    # vm_definitions map (12 VMs)
+│   ├── locals.tf                    # vm_definitions map (14 VMs)
 │   ├── network.tf                   # libvirt NAT network (mgmt)
 │   ├── pool.tf                      # libvirt dir storage pool
 │   ├── volumes.tf                   # base image + per-VM root + cloudinit volumes
-│   ├── cloudinit.tf                 # SSH key + 12 per-VM cloudinit disks
-│   ├── domains.tf                   # 12 libvirt domains (for_each)
+│   ├── cloudinit.tf                 # SSH key + 14 per-VM cloudinit disks
+│   ├── domains.tf                   # 14 libvirt domains (for_each)
 │   ├── juju.tf                      # null_resource: bootstrap, deploy, vault_init
 │   ├── outputs.tf                   # vm_ips, ssh keys, testbed.yaml
 │   ├── templates/
