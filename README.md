@@ -7,6 +7,14 @@ controller, while **nova-compute runs directly on the hypervisor** — where
 the NVIDIA GPU already lives, avoiding nested virtualization and PCI
 passthrough complexity.
 
+**All scripts and Terraform commands are assumed to run from the
+hypervisor node** — the same node that will be registered as the
+nova-compute Juju unit. This is required because the scripts use local
+`virsh` calls and install the SSH public key in the local
+`~/.ssh/authorized_keys`. See
+[Prerequisites](#on-the-hypervisor-the-future-nova-compute-unit) for
+details.
+
 A single `terraform apply` creates the VMs, bootstraps a Juju controller,
 deploys the OpenStack bundle (with OVN networking and the nvidia-vgpu
 subordinate charm), and initialises Vault for OVN TLS certificates.
@@ -51,7 +59,7 @@ interface for OVN provider network traffic.
 
 ## Prerequisites
 
-### On the hypervisor
+### On the hypervisor (hardware)
 
 - **Ubuntu 24.04 (Noble)** with:
   - `libvirt` and `virsh` installed, `libvirtd` service running
@@ -63,13 +71,39 @@ interface for OVN provider network traffic.
   - Sufficient CPU, memory, and disk for 12 VMs (see
     [Sizing](#sizing) below)
 
-### On the machine running Terraform (may be the hypervisor)
+### On the hypervisor (the future nova-compute unit)
+
+All scripts in this repository — `prepare-host.sh`, `deploy-openstack.sh`,
+`vault-unseal-and-authorise.sh`, and the Terraform `null_resource`
+provisioners — are assumed to run **from the hypervisor node itself**, i.e.
+the same node that will be registered as the nova-compute Juju machine.
+This is a design assumption, not a recommendation:
+
+- `deploy-openstack.sh` discovers control-plane VM IPs through
+  `virsh domifaddr`, which requires local libvirt access
+  (`qemu:///system`).
+- `deploy-openstack.sh` installs the generated SSH public key by appending
+  it **locally** to `~/.ssh/authorized_keys` on the node it runs on — this
+  is the key Juju uses to SSH into the hypervisor when registering it as a
+  manual machine. Running the script from a different host would install
+  the key in the wrong `authorized_keys` file and Juju registration would
+  fail.
+- The hypervisor is registered as a manual Juju machine with
+  `juju add-machine ssh:${HYPERVISOR_SSH_USER}@${HYPERVISOR_IP}`, which
+  relies on that local key being in place.
+
+If you need to drive the deployment from a workstation instead, copy the
+generated private key to the workstation afterwards and SSH to the
+hypervisor with it — but run the scripts on the hypervisor.
+
+**Prerequisites on this node:**
 
 - **Terraform** >= 1.7 (required for `mock_provider` in tests)
 - **Juju** >= 3.x (`snap install juju --classic`)
 - **vault** CLI (`snap install vault`)
 - **jq** (`apt install jq`)
 - **virsh** (libvirt client tools, for IP discovery during apply)
+- **envsubst** (`gettext-base` package, for bundle template rendering)
 
 ### Verify prerequisites
 
@@ -82,6 +116,11 @@ availability, NVIDIA vGPU driver, and the `sriov-manage` tool without
 making any changes.
 
 ## Quick start
+
+> **Run all commands on the hypervisor** — the same node that will become
+> the nova-compute Juju machine. See
+> [On the hypervisor (the future nova-compute unit)](#on-the-hypervisor-the-future-nova-compute-unit)
+> for why.
 
 ```bash
 # 1. Verify the hypervisor is ready
@@ -286,16 +325,20 @@ GRUB.
 
 ### `scripts/deploy-openstack.sh`
 
-Deploys the OpenStack bundle after Juju bootstrap. Accepts `--dry-run` to
-render the bundle without deploying.
+Deploys the OpenStack bundle after Juju bootstrap. Must be run on the
+hypervisor (see [On the hypervisor](#on-the-hypervisor-the-future-nova-compute-unit)).
+Accepts `--dry-run` to render the bundle without deploying.
 
 Workflow:
-1. Discovers 11 control-plane VM IPs via `virsh domifaddr`
+1. Discovers 11 control-plane VM IPs via `virsh domifaddr` (local libvirt)
 2. Waits for Juju controller readiness
 3. Registers 11 VMs + the hypervisor as manual Juju machines (idempotent —
    checks `juju machines` by IP before adding)
-4. Renders the bundle from the template (envsubst for OVN variables)
-5. Runs `juju deploy --trust --map-machines=existing`
+4. Installs the generated SSH public key in the **local**
+   `~/.ssh/authorized_keys` so Juju can register the hypervisor as a
+   manual machine
+5. Renders the bundle from the template (envsubst for OVN variables)
+6. Runs `juju deploy --trust --map-machines=existing`
 
 Does NOT run `juju config` or `juju run` after deployment — all
 configuration is defined in the bundle.
