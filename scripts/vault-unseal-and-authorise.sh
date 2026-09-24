@@ -153,7 +153,50 @@ export VAULT_TOKEN="$token"
 echo "  Authorizing vault charm..."
 juju run -m "$MODEL" vault/leader authorize-charm token="$token" 2>&1
 
-# --- 10. Summary ---
+# --- 10. Generate and install the root CA if the vault is "Missing CA cert" ---
+echo "=== Checking for 'Missing CA cert' blocked state ==="
+if juju status -m "$MODEL" --format=json vault 2>/dev/null \
+    | jq -e '.applications.vault.units | to_entries[] | .value["workload-status"].message // "" | contains("Missing CA cert")' >/dev/null 2>&1; then
+    echo "  Vault is blocked with 'Missing CA cert'. Generating root CA..."
+    run_out=$(juju run -m "$MODEL" --format json vault/leader generate-root-ca 2>/dev/null)
+    task_id=$(printf '%s' "$run_out" | jq -r '.id // .operations[].id // empty' 2>/dev/null)
+    if [[ -z "$task_id" ]]; then
+        echo "ERROR: could not determine the generate-root-ca task id from: $run_out" >&2
+        exit 1
+    fi
+
+    echo "  Waiting for generate-root-ca task $task_id to complete..."
+    ca_cert=""
+    for attempt in $(seq 1 60); do
+        task_out=$(juju show-task --format json "$task_id" 2>/dev/null)
+        status=$(printf '%s' "$task_out" | jq -r '.status // "pending"')
+        if [[ "$status" == "completed" ]]; then
+            ca_cert=$(printf '%s' "$task_out" | jq -r '.results.output // empty')
+            break
+        fi
+        if [[ "$status" == "failed" ]] || [[ "$status" == "cancelled" ]]; then
+            echo "ERROR: generate-root-ca task $task_id ended with status '$status'" >&2
+            exit 1
+        fi
+        echo "  Waiting for generate-root-ca (attempt ${attempt}/60)..."
+        sleep 10
+    done
+
+    if [[ -z "$ca_cert" ]]; then
+        echo "ERROR: generate-root-ca did not produce a certificate" >&2
+        exit 1
+    fi
+
+    ca_dest="/usr/local/share/ca-certificates/vault-root-ca.crt"
+    echo "  Installing root CA to $ca_dest"
+    printf '%s\n' "$ca_cert" | sudo tee "$ca_dest" >/dev/null
+    sudo update-ca-certificates
+    echo "  Root CA installed and trusted system-wide."
+else
+    echo "  Vault is not blocked with 'Missing CA cert'; skipping CA generation."
+fi
+
+# --- 11. Summary ---
 echo "=== Vault initialization complete ==="
 echo "  Model:            $MODEL"
 echo "  Leader:           $leader ($leader_addr)"
