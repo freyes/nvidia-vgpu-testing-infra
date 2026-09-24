@@ -13,6 +13,8 @@ machines:
   '9': {}
   '10': {}
   '11': {}
+  '12': {}
+  '13': {}
 
 applications:
   mysql-innodb-cluster:
@@ -92,11 +94,13 @@ applications:
     charm: ch:ovn-central
     channel: latest/edge
     series: noble
-    num_units: 1
+    num_units: 3
     options:
       source: distro
     to:
       - '9'
+      - '12'
+      - '13'
 
   vault:
     charm: ch:vault

@@ -41,21 +41,25 @@ BUNDLE_TEMPLATE_PATH="${BUNDLE_TEMPLATE_PATH:?BUNDLE_TEMPLATE_PATH is required}"
 
 MODEL="${JUJU_CONTROLLER_NAME}:${JUJU_MODEL_NAME}"
 
-# 11 control-plane VM domains (excluding juju-controller), ordered to match
-# bundle machine IDs 1-11.
+# Control-plane VM domains (excluding juju-controller), ordered to match
+# bundle machine IDs. VM_BUNDLE_IDS holds the corresponding bundle machine
+# ID per VM; the hypervisor (nova-compute) is bundle machine 11.
 VM_DOMAINS=(
-    "mysql-0"               # → bundle machine 1
-    "mysql-1"               # → bundle machine 2
-    "mysql-2"               # → bundle machine 3
-    "rabbitmq"              # → bundle machine 4
-    "keystone"              # → bundle machine 5
-    "glance"                # → bundle machine 6
-    "nova-cloud-controller" # → bundle machine 7
-    "placement"             # → bundle machine 8
-    "neutron-api"           # → bundle machine 9
-    "ovn-central"            # → bundle machine 10
-    "vault"                 # → bundle machine 11
+    "mysql-0"               # bundle machine 0
+    "mysql-1"               # bundle machine 1
+    "mysql-2"               # bundle machine 2
+    "rabbitmq"              # bundle machine 3
+    "keystone"              # bundle machine 4
+    "glance"                # bundle machine 5
+    "nova-cloud-controller" # bundle machine 6
+    "placement"             # bundle machine 7
+    "neutron-api"           # bundle machine 8
+    "ovn-central"           # bundle machine 9
+    "vault"                 # bundle machine 10
+    "ovn-central-1"         # bundle machine 12
+    "ovn-central-2"         # bundle machine 13
 )
+VM_BUNDLE_IDS=(0 1 2 3 4 5 6 7 8 9 10 12 13)
 
 # --- 3. Start SSH agent and load the key ---
 eval "$(ssh-agent -s)"
@@ -152,11 +156,11 @@ add_machine_and_get_id() {
     echo "$output" | grep -oE 'machine [0-9]+' | tail -1 | grep -oE '[0-9]+'
 }
 
-# Register 11 control-plane VMs (idempotent — skip if already registered).
+# Register control-plane VMs (idempotent — skip if already registered).
 declare -A MACHINE_JUJU_IDS
 for i in "${!VM_DOMAINS[@]}"; do
     domain="${VM_DOMAINS[$i]}"
-    bundle_id=$i
+    bundle_id="${VM_BUNDLE_IDS[$i]}"
     ip="${VM_IPS[$domain]}"
 
     juju_id=$(get_machine_id_by_ip "$ip")
@@ -207,7 +211,7 @@ echo "=== Deploying bundle ==="
 # is bundle machine 11 and always needs an explicit mapping to the Juju
 # machine ID assigned by `juju add-machine`.
 MAP_ARG="existing"
-for bundle_id in 0 1 2 3 4 5 6 7 8 9 10; do
+for bundle_id in "${VM_BUNDLE_IDS[@]}"; do
     juju_id="${MACHINE_JUJU_IDS[$bundle_id]}"
     if [ "$bundle_id" != "$juju_id" ]; then
         MAP_ARG="$MAP_ARG,$bundle_id=$juju_id"

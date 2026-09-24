@@ -11,6 +11,8 @@ locals {
     placement             = { name = "placement", role = "control", is_juju_controller = false }
     neutron-api           = { name = "neutron-api", role = "control", is_juju_controller = false }
     ovn-central           = { name = "ovn-central", role = "control", is_juju_controller = false }
+    ovn-central-1         = { name = "ovn-central-1", role = "control", is_juju_controller = false }
+    ovn-central-2         = { name = "ovn-central-2", role = "control", is_juju_controller = false }
     vault                 = { name = "vault", role = "control", is_juju_controller = false }
   }
 
