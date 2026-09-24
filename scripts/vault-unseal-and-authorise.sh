@@ -74,10 +74,10 @@ vault_status() {
     local out rc
     out=$(vault status 2>/dev/null)
     rc=$?
-    if [ "$rc" -ne 0 ]; then
-        echo "unreachable"
-        return
-    fi
+    # if [ "$rc" -ne 0 ]; then
+    #     echo "unreachable"
+    #     return
+    # fi
     local initialized sealed
     initialized=$(printf '%s\n' "$out" | awk '/^Initialized[[:space:]]/ {print $NF}')
     sealed=$(printf '%s\n' "$out" | awk '/^Sealed[[:space:]]/ {print $NF}')
