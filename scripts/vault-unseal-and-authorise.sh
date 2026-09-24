@@ -9,6 +9,7 @@
 #   JUJU_MODEL              Juju workload model name (default: openstack)
 #   JUJU_CONTROLLER_NAME    Juju controller name (default: vgpu-controller)
 set -euo pipefail
+set -x
 
 # --- 1. Read environment variables ---
 JUJU_MODEL="${JUJU_MODEL:-openstack}"
