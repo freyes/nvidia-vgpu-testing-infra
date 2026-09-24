@@ -63,45 +63,67 @@ echo "  Model:   $MODEL"
 echo "  Leader:  $leader ($leader_addr)"
 echo "  Units:   ${addrs[*]}"
 
-# --- 6. Wait for vault API to be reachable, then check status ---
+# --- 6. Wait for vault API to be reachable, then determine its state ---
 export VAULT_ADDR="http://${leader_addr}:8200"
+
+# vault_status() prints "initialized:<true|false> sealed:<true|false>" by
+# parsing the human-readable `vault status` output. This is authoritative
+# where the exit code is not (Vault 1.8 returns 1 for BOTH sealed and
+# uninitialized; it does not return a distinct "uninitialized" code).
+vault_status() {
+    local out rc
+    out=$(vault status 2>/dev/null)
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+        echo "unreachable"
+        return
+    fi
+    local initialized sealed
+    initialized=$(printf '%s\n' "$out" | awk '/^Initialized[[:space:]]/ {print $NF}')
+    sealed=$(printf '%s\n' "$out" | awk '/^Sealed[[:space:]]/ {print $NF}')
+    echo "initialized:${initialized} sealed:${sealed}"
+}
+
 echo "Waiting for vault API at ${VAULT_ADDR}..."
+leader_state=""
 for attempt in $(seq 1 60); do
-    set +e
-    vault status > /dev/null 2>&1
-    leader_status_rc=$?
-    set -e
-    if [ "$leader_status_rc" -eq 0 ] || [ "$leader_status_rc" -eq 1 ] || [ "$leader_status_rc" -eq 2 ]; then
-        echo "  Vault API is responding (status rc=$leader_status_rc)."
+    leader_state=$(vault_status)
+    if [ "$leader_state" != "unreachable" ]; then
+        echo "  Vault API is responding ($leader_state)."
         break
     fi
     echo "  Waiting for vault API (attempt ${attempt}/60)..."
     sleep 10
 done
 
-if [ "$leader_status_rc" -ne 0 ] && [ "$leader_status_rc" -ne 1 ] && [ "$leader_status_rc" -ne 2 ]; then
-    echo "ERROR: vault API not reachable after 60 attempts (rc=$leader_status_rc)" >&2
+if [ "$leader_state" == "unreachable" ]; then
+    echo "ERROR: vault API not reachable after 60 attempts" >&2
     exit 1
 fi
 
-# vault status exit codes: 0 = unsealed, 1 = sealed, 2 = uninitialized
+leader_initialized=$(awk -F'[: ]+' '{print $2}' <<<"$leader_state")
+leader_sealed=$(awk -F'[: ]+' '{print $4}' <<<"$leader_state")
 
-if [ "$leader_status_rc" -eq 2 ]; then
+if [ "$leader_initialized" == "false" ]; then
     echo "  Vault is not initialized. Initializing..."
     echo "$model_uuid" > "$unseal_output"
     chmod 600 "$unseal_output"
     vault operator init -key-shares=5 -key-threshold=3 >> "$unseal_output" 2>&1
     echo "  Vault initialized. Unseal output saved to: $unseal_output"
-elif [ "$leader_status_rc" -eq 0 ]; then
-    echo "  Vault leader is already initialized and unsealed."
-elif [ "$leader_status_rc" -eq 1 ]; then
+elif [ "$leader_sealed" == "true" ]; then
     echo "  Vault leader is initialized but sealed. Will unseal."
 else
-    echo "ERROR: vault status returned unexpected exit code $leader_status_rc" >&2
-    exit 1
+    echo "  Vault leader is already initialized and unsealed."
 fi
 
 # --- 7. Extract unseal keys and root token from the unseal output ---
+if [[ ! -f "$unseal_output" ]]; then
+    echo "ERROR: vault is already initialized but the unseal output file is missing:" >&2
+    echo "       $unseal_output" >&2
+    echo "       Restore that file (it holds the unseal keys and root token), or" >&2
+    echo "       re-create the vault from scratch (destroy and re-deploy the bundle)." >&2
+    exit 1
+fi
 key1=$(sed -r 's/Unseal Key 1: (.+)/\1/g;t;d' "$unseal_output")
 key2=$(sed -r 's/Unseal Key 2: (.+)/\1/g;t;d' "$unseal_output")
 key3=$(sed -r 's/Unseal Key 3: (.+)/\1/g;t;d' "$unseal_output")
@@ -110,20 +132,19 @@ token=$(sed -r 's/Initial Root Token: (.+)/\1/g;t;d' "$unseal_output")
 # --- 8. Unseal all vault units (skip those already unsealed) ---
 for addr in "${addrs[@]}"; do
     export VAULT_ADDR="http://${addr}:8200"
-    set +e
-    vault status > /dev/null 2>&1
-    unit_status_rc=$?
-    set -e
-    if [ "$unit_status_rc" -eq 0 ]; then
+    unit_state=$(vault_status)
+    if [ "$unit_state" == "unreachable" ]; then
+        echo "ERROR: vault at $addr is unreachable" >&2
+        exit 1
+    fi
+    unit_sealed=$(awk -F'[: ]+' '{print $4}' <<<"$unit_state")
+    if [ "$unit_sealed" == "false" ]; then
         echo "  $addr: already unsealed, skipping."
-    elif [ "$unit_status_rc" -eq 1 ]; then
+    else
         echo "  $addr: unsealing..."
         vault operator unseal "$key1"
         vault operator unseal "$key2"
         vault operator unseal "$key3"
-    else
-        echo "ERROR: vault at $addr is not initialized (rc=$unit_status_rc)" >&2
-        exit 1
     fi
 done
 
