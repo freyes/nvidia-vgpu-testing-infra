@@ -64,6 +64,7 @@ applications:
     options:
       network-manager: Neutron
       openstack-origin: distro
+      pci-in-placement: True
     to:
       - '6'
 
@@ -119,6 +120,7 @@ applications:
       openstack-origin: distro
       enable-live-migration: false
       config-flags: default_ephemeral_format=ext4
+      pci-in-placement: True
     to:
       - '11'
 
