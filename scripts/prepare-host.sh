@@ -95,6 +95,7 @@ install_deps() {
         ebtables
         iproute2
         jq
+        unzip
         curl
         make
     )
