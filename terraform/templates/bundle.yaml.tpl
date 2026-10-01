@@ -120,7 +120,7 @@ applications:
       openstack-origin: distro
       enable-live-migration: false
       config-flags: default_ephemeral_format=ext4
-      pci-in-placement: True
+      pci-report-in-placement: True
     to:
       - '11'
 
