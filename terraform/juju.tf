@@ -69,6 +69,10 @@ locals {
         --bootstrap-base=ubuntu@24.04
     fi
 
+    # --- 6.5. Set default logging-config for all models ---
+    juju model-defaults logging-config="<root>=INFO;unit=DEBUG"
+    echo "Set juju model-defaults logging-config=<root>=INFO;unit=DEBUG"
+
     # --- 7. Add or select the workload model ---
     if juju models --format=json 2>/dev/null \
         | jq -e ".models | any(.name == \"$${JUJU_MODEL_NAME}\")" >/dev/null 2>&1; then
