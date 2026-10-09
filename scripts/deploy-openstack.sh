@@ -109,19 +109,19 @@ echo "  Juju controller is ready"
 echo "=== Rendering bundle ==="
 BUNDLE_OUTPUT="${BUNDLE_TEMPLATE_PATH%.tpl}"
 
-REPO_ROOT="$(cd "$(dirname "$BUNDLE_TEMPLATE_PATH")/.." && pwd)"
-NVIDIA_VGPU_CHARM="${REPO_ROOT}/nova-compute-nvidia-vgpu_amd64.charm"
+TERRAFORM_DIR="$(cd "$(dirname "$BUNDLE_TEMPLATE_PATH")/.." && pwd)"
+NVIDIA_VGPU_DEB="$(find "$TERRAFORM_DIR" -maxdepth 1 -name 'nvidia-vgpu-ubuntu-*.deb' -print -quit)"
 
-if [[ ! -f "$NVIDIA_VGPU_CHARM" ]]; then
-    echo "ERROR: nova-compute-nvidia-vgpu charm not found at: $NVIDIA_VGPU_CHARM" >&2
-    echo "       Place the charm file at the repository root." >&2
+if [[ -z "$NVIDIA_VGPU_DEB" || ! -f "$NVIDIA_VGPU_DEB" ]]; then
+    echo "ERROR: no nvidia vGPU driver found matching nvidia-vgpu-ubuntu-*.deb in $TERRAFORM_DIR" >&2
     exit 1
 fi
+echo "  nvidia vGPU driver: $NVIDIA_VGPU_DEB"
 
 export ovn_bridge_mappings="$OVN_BRIDGE_MAPPINGS"
 export ovn_bridge_interface_mappings="$OVN_BRIDGE_INTERFACE_MAPPINGS"
-export nvidia_vgpu_charm_path="$NVIDIA_VGPU_CHARM"
-envsubst '${ovn_bridge_mappings} ${ovn_bridge_interface_mappings} ${nvidia_vgpu_charm_path}' \
+export nvidia_vgpu_driver_path="$NVIDIA_VGPU_DEB"
+envsubst '${ovn_bridge_mappings} ${ovn_bridge_interface_mappings} ${nvidia_vgpu_driver_path}' \
     < "$BUNDLE_TEMPLATE_PATH" > "$BUNDLE_OUTPUT"
 echo "  Rendered bundle: $BUNDLE_OUTPUT"
 

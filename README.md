@@ -273,12 +273,15 @@ deployed with `juju deploy --trust --map-machines=existing`. It defines:
 
 | Application               | Relates to          | Options                              |
 |---------------------------|---------------------|--------------------------------------|
-| nova-compute-nvidia-vgpu  | nova-compute        | `vgpu-mode: auto`                    |
+| nova-compute-nvidia-vgpu  | nova-compute        | `vgpu-mode: auto` (defines `nvidia-vgpu-software` resource) |
 | ovn-chassis               | nova-compute        | `ovn-bridge-mappings`, `bridge-interface-mappings` |
 | neutron-api-plugin-ovn    | neutron-api         |                                      |
 | mysql-router (x6)         | each DB app         |                                      |
 
-All charms use `channel: latest/edge` and `series: noble`.
+All charms use `channel: latest/edge` and `series: noble`, except
+`nova-compute-nvidia-vgpu`, which uses `channel: latest/edge/vgpu` and
+attaches the `nvidia-vgpu-software` resource from the
+`nvidia-vgpu-ubuntu-*.deb` file found in the `terraform/` directory.
 
 ### Networking
 
