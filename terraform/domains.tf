@@ -7,6 +7,7 @@ resource "libvirt_domain" "vgpu_vm" {
   memory_unit = "MiB"
   vcpu        = each.value.vcpus
   running     = true
+  autostart   = true
 
   os = {
     type         = "hvm"

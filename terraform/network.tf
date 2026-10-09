@@ -1,5 +1,7 @@
 resource "libvirt_network" "mgmt" {
-  name = "vgpu-mgmt"
+  name      = "vgpu-mgmt"
+  autostart = true
+
   forward = {
     mode = "nat"
   }
