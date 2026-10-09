@@ -38,12 +38,8 @@ resource "libvirt_cloudinit_disk" "cloudinit" {
 resource "libvirt_volume" "vm_cloudinit" {
   for_each = local.vm_definitions
 
-  name = "${each.key}-cloudinit"
+  name = "${each.key}-cloudinit.iso"
   pool = libvirt_pool.vgpu.name
-
-  target = {
-    format = { type = "raw" }
-  }
 
   create = {
     content = {
