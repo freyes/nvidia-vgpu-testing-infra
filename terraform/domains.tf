@@ -28,7 +28,7 @@ resource "libvirt_domain" "vgpu_vm" {
         boot   = { order = 1 }
       },
       {
-        source = { file = { file = libvirt_cloudinit_disk.cloudinit[each.key].path } }
+        source = { volume = { pool = libvirt_pool.vgpu.name, volume = libvirt_volume.vm_cloudinit[each.key].name } }
         target = { dev = "sda", bus = "sata" }
         device = "cdrom"
       }

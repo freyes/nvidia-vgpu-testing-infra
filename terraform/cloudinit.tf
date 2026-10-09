@@ -34,3 +34,20 @@ resource "libvirt_cloudinit_disk" "cloudinit" {
     local-hostname = each.key
   })
 }
+
+resource "libvirt_volume" "vm_cloudinit" {
+  for_each = local.vm_definitions
+
+  name = "${each.key}-cloudinit"
+  pool = libvirt_pool.vgpu.name
+
+  target = {
+    format = { type = "raw" }
+  }
+
+  create = {
+    content = {
+      url = libvirt_cloudinit_disk.cloudinit[each.key].path
+    }
+  }
+}
