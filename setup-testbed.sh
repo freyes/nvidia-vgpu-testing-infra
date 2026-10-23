@@ -61,7 +61,7 @@ echo "ready"
 run_ssh "git clone https://github.com/freyes/nvidia-vgpu-testing-infra/ ~/nvidia-vgpu-testing-infra"
 run_ssh "cd ~/nvidia-vgpu-testing-infra; ./scripts/prepare-host.sh --install"
 scp ./NVIDIA-GRID-Ubuntu-KVM-*.zip  ubuntu@${DEVICE_IP}:
-run_ssh "mkdir -p ./drivers; unzip ./NVIDIA-GRID-Ubuntu-KVM-*.zip -d ./drivers ; cp ./drivers/Host_Drivers/nvidia-vgpu-ubuntu*.deb ./nvidia-vgpu-testing-infra/terraform/; sudo apt install ./nvidia-vgpu-testing-infra/terraform/nvidia-vgpu-ubuntu*.deb"
+run_ssh "mkdir -p ./drivers; unzip ./NVIDIA-GRID-Ubuntu-KVM-*.zip -d ./drivers ; cp ./drivers/Host_Drivers/nvidia-vgpu-ubuntu*.deb ./nvidia-vgpu-testing-infra/terraform/; sudo apt install -yq ./nvidia-vgpu-testing-infra/terraform/nvidia-vgpu-ubuntu*.deb"
 run_ssh "echo blacklist nouveau | sudo tee /etc/modprobe.d/blacklist-nouveau.conf"
 run_ssh "loginctl enable-linger"
 run_ssh "sudo reboot" || /bin/true
